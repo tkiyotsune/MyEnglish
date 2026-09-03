@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>英単語帳</title>
+  <style>
+    :root {
+      --bg: #f7f8fc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --sub: #6b7280;
+      --accent: #2563eb;
+      --line: #e5e7eb;
+      --soft: #eff6ff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .desc {
+      margin: 0;
+      color: var(--sub);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      font-size: 16px;
+      background: white;
+    }
+
+    .count {
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid var(--line);
+      color: var(--sub);
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+    }
+
+    .word-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .word {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0;
+      color: #111827;
+    }
+
+    .pos {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--accent);
+      font-weight: 700;
+      border: 1px solid #bfdbfe;
+    }
+
+    .pron {
+      color: var(--sub);
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .label {
+      font-size: 12px;
+      color: var(--sub);
+      margin-bottom: 4px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .meaning {
+      margin: 0 0 10px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .example {
+      margin: 0;
+      padding: 12px 14px;
+      background: #f9fafb;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .example-en {
+      margin: 0 0 6px;
+      font-style: italic;
+    }
+
+    .example-ja {
+      margin: 0;
+      color: var(--sub);
+      font-size: 14px;
+    }
+
+    .note {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+      font-size: 13px;
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      color: var(--sub);
+      font-size: 14px;
+      background: white;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>英単語帳</h1>
+      <p class="desc">意味・例文・発音つき。検索しながら少しずつ増やしていけるHTML単語帳です。</p>
+    </section>
+
+    <div class="controls">
+      <input id="search" type="text" placeholder="単語・意味で検索（例: avoid / 防ぐ）" />
+      <div class="count" id="count">15 words</div>
+    </div>
+
+    <div class="grid" id="cards"></div>
+
+    <div class="footer-note">
+      <strong>更新しやすい作りにしています。</strong><br>
+      このHTMLは、下の <code>words</code> 配列に単語データを追加すれば、そのまま単語帳を増やせます。
+    </div>
+  </div>
+
+  <script>
+    const words = [
+      {
+        word: "prove",
+        pos: "verb",
+        ipa: "/pruːv/",
+        kana: "プルーヴ",
+        meaning: "証明する、〜だとわかる",
+        example: "She proved that the plan would work.",
+        translation: "彼女はその計画がうまくいくことを証明しました。"
+      },
+      {
+        word: "pretend",
+        pos: "verb",
+        ipa: "/prɪˈtend/",
+        kana: "プリテンド",
+        meaning: "〜のふりをする",
+        example: "He pretended to be busy.",
+        translation: "彼は忙しいふりをしました。"
+      },
+      {
+        word: "avoid",
+        pos: "verb",
+        ipa: "/əˈvɔɪd/",
+        kana: "アヴォイド",
+        meaning: "避ける、防ぐ",
+        example: "I avoid eating too much sugar.",
+        translation: "私は砂糖をとりすぎないようにしています。"
+      },
+      {
+        word: "afford",
+        pos: "verb",
+        ipa: "/əˈfɔːrd/",
+        kana: "アフォード",
+        meaning: "〜する余裕がある、買う余裕がある",
+        example: "I can't afford a new laptop right now.",
+        translation: "今は新しいノートパソコンを買う余裕がありません。"
+      },
+      {
+        word: "forbid",
+        pos: "verb",
+        ipa: "/fərˈbɪd/",
+        kana: "フォービッド",
+        meaning: "禁止する",
+        example: "My school forbids students to smoke.",
+        translation: "私の学校では生徒が喫煙することを禁止しています。"
+      },
+      {
+        word: "regrets",
+        pos: "verb / noun",
+        ipa: "/rɪˈɡrets/",
+        kana: "リグレッツ",
+        meaning: "後悔する（三単現）、後悔（複数形）",
+        example: "She regrets not studying harder.",
+        translation: "彼女はもっと一生懸命勉強しなかったことを後悔しています。",
+        note: "辞書では基本形の regret で覚えるのがおすすめです。"
+      },
+      {
+        word: "each",
+        pos: "determiner / pronoun",
+        ipa: "/iːtʃ/",
+        kana: "イーチ",
+        meaning: "それぞれの、それぞれ",
+        example: "Each student has a different goal.",
+        translation: "それぞれの生徒が違う目標を持っています。"
+      },
+      {
+        word: "certain",
+        pos: "adjective",
+        ipa: "/ˈsɜːrtn/",
+        kana: "サートゥン",
+        meaning: "確かな、ある特定の",
+        example: "I'm certain that he will come.",
+        translation: "私は彼が来ると確信しています。"
+      },
+      {
+        word: "polite",
+        pos: "adjective",
+        ipa: "/pəˈlaɪt/",
+        kana: "ポライト",
+        meaning: "礼儀正しい",
+        example: "It is polite to say thank you.",
+        translation: "ありがとうと言うのは礼儀正しいことです。"
+      },
+      {
+        word: "pleased",
+        pos: "adjective",
+        ipa: "/pliːzd/",
+        kana: "プリーズド",
+        meaning: "うれしい、満足して",
+        example: "I'm pleased with the result.",
+        translation: "私はその結果に満足しています。"
+      },
+      {
+        word: "wise",
+        pos: "adjective",
+        ipa: "/waɪz/",
+        kana: "ワイズ",
+        meaning: "賢い、分別のある",
+        example: "It was wise to save some money.",
+        translation: "いくらかお金を貯めておいたのは賢明でした。"
+      },
+      {
+        word: "prevent",
+        pos: "verb",
+        ipa: "/prɪˈvent/",
+        kana: "プリヴェント",
+        meaning: "防ぐ、妨げる",
+        example: "Regular exercise helps prevent illness.",
+        translation: "定期的な運動は病気の予防に役立ちます。"
+      },
+      {
+        word: "allow",
+        pos: "verb",
+        ipa: "/əˈlaʊ/",
+        kana: "アラウ",
+        meaning: "許可する、可能にする",
+        example: "My parents allow me to stay out late.",
+        translation: "両親は私が遅くまで外にいることを許可してくれます。"
+      },
+      {
+        word: "whenever",
+        pos: "conjunction / adverb",
+        ipa: "/wenˈevər/",
+        kana: "ウェネヴァー",
+        meaning: "〜するときはいつでも、いつでも",
+        example: "You can call me whenever you need help.",
+        translation: "助けが必要なときはいつでも私に電話していいです。"
+      },
+      {
+        word: "wherever",
+        pos: "conjunction / adverb",
+        ipa: "/werˈevər/",
+        kana: "ウェレヴァー",
+        meaning: "どこでも、〜するところならどこでも",
+        example: "I will follow you wherever you go.",
+        translation: "あなたがどこへ行っても、私はついていきます。"
+      }
+    ,
+      {
+        word: "just about everywhere",
+        pos: "phrase",
+        ipa: "/dʒʌst əˈbaʊt ˈevriwer/",
+        kana: "ジャスト アバウト エヴリウェア",
+        meaning: "ほとんどどこにでも、だいたいどこでも",
+        example: "You can find coffee shops just about everywhere in Bangkok.",
+        translation: "バンコクでは、ほとんどどこにでもカフェを見つけられます。"
+      },
+      {
+        word: "invention",
+        pos: "noun",
+        ipa: "/ɪnˈvenʃn/",
+        kana: "インヴェンション",
+        meaning: "発明、発明品",
+        example: "The smartphone is one of the most useful inventions.",
+        translation: "スマートフォンは最も便利な発明品の一つです。"
+      },
+      {
+        word: "expression",
+        pos: "noun",
+        ipa: "/ɪkˈspreʃn/",
+        kana: "イクスプレッション",
+        meaning: "表現、言い回し、表情",
+        example: "This expression is often used in casual conversation.",
+        translation: "この表現はカジュアルな会話でよく使われます。"
+      },
+      {
+        word: "list",
+        pos: "noun / verb",
+        ipa: "/lɪst/",
+        kana: "リスト",
+        meaning: "一覧、リスト；一覧にする",
+        example: "I made a list of words I want to remember.",
+        translation: "私は覚えたい単語のリストを作りました。"
+      },
+      {
+        word: "society",
+        pos: "noun",
+        ipa: "/səˈsaɪəti/",
+        kana: "ソサイエティ",
+        meaning: "社会、協会",
+        example: "Technology has changed modern society.",
+        translation: "テクノロジーは現代社会を変えました。"
+      },
+      {
+        word: "live with",
+        pos: "phrasal verb",
+        ipa: "/lɪv wɪð/",
+        kana: "リヴ ウィズ",
+        meaning: "〜と一緒に住む、〜を受け入れて生きる",
+        example: "I live with my friend in Bangkok.",
+        translation: "私はバンコクで友達と一緒に住んでいます。"
+      },
+      {
+        word: "dresser",
+        pos: "noun",
+        ipa: "/ˈdresər/",
+        kana: "ドレッサー",
+        meaning: "化粧台、衣装だんす",
+        example: "She keeps her makeup on the dresser.",
+        translation: "彼女は化粧品をドレッサーの上に置いています。"
+      },
+      {
+        word: "brush one's teeth",
+        pos: "phrase",
+        ipa: "/brʌʃ wʌnz tiːθ/",
+        kana: "ブラッシュ ワンズ ティース",
+        meaning: "歯を磨く",
+        example: "I brush my teeth after breakfast.",
+        translation: "私は朝食の後に歯を磨きます。",
+        note: "one's は my / your / his / her などに置き換えて使います。"
+      }
+    ,
+      {
+        word: "facecloth",
+        pos: "noun",
+        ipa: "/ˈfeɪsˌklɔːθ/",
+        kana: "フェイスクロス",
+        meaning: "顔を拭く布、フェイスタオル",
+        example: "She washed her face with a warm facecloth.",
+        translation: "彼女は温かいフェイスクロスで顔を洗いました。"
+      },
+      {
+        word: "highway",
+        pos: "noun",
+        ipa: "/ˈhaɪweɪ/",
+        kana: "ハイウェイ",
+        meaning: "幹線道路、高速道路",
+        example: "We drove on the highway for three hours.",
+        translation: "私たちは高速道路を3時間運転しました。"
+      },
+      {
+        word: "again and again",
+        pos: "phrase",
+        ipa: "/əˈɡen ænd əˈɡen/",
+        kana: "アゲイン アンド アゲイン",
+        meaning: "何度も繰り返して、何回も",
+        example: "I listened to that song again and again.",
+        translation: "私はその曲を何度も繰り返して聴きました。"
+      },
+      {
+        word: "weekend crowd",
+        pos: "phrase",
+        ipa: "/ˈwiːkˌend kraʊd/",
+        kana: "ウィークエンド クラウド",
+        meaning: "週末の人混み、週末の混雑",
+        example: "I try to avoid the weekend crowd at the mall.",
+        translation: "私はモールの週末の人混みを避けるようにしています。"
+      },
+      {
+        word: "excellent",
+        pos: "adjective",
+        ipa: "/ˈeksələnt/",
+        kana: "エクセレント",
+        meaning: "すばらしい、とても優れた",
+        example: "The food at that restaurant was excellent.",
+        translation: "そのレストランの料理はすばらしかったです。"
+      },
+      {
+        word: "nation",
+        pos: "noun",
+        ipa: "/ˈneɪʃn/",
+        kana: "ネイション",
+        meaning: "国家、国民",
+        example: "The nation celebrated the victory.",
+        translation: "その国は勝利を祝いました。"
+      },
+      {
+        word: "bloom",
+        pos: "verb / noun",
+        ipa: "/bluːm/",
+        kana: "ブルーム",
+        meaning: "咲く、開花する；花",
+        example: "These flowers bloom in spring.",
+        translation: "これらの花は春に咲きます。"
+      },
+      {
+        word: "wire",
+        pos: "noun",
+        ipa: "/waɪər/",
+        kana: "ワイアー",
+        meaning: "針金、電線、ワイヤー",
+        example: "Be careful not to trip over the wire.",
+        translation: "そのワイヤーにつまずかないように気をつけてください。"
+      },
+      {
+        word: "frame",
+        pos: "noun / verb",
+        ipa: "/freɪm/",
+        kana: "フレーム",
+        meaning: "枠、額縁；枠にはめる",
+        example: "The picture is in a wooden frame.",
+        translation: "その写真は木の額縁に入っています。"
+      },
+      {
+        word: "watch",
+        pos: "verb / noun",
+        ipa: "/wɑːtʃ/",
+        kana: "ウォッチ",
+        meaning: "見る、見守る；腕時計",
+        example: "We watched a movie last night.",
+        translation: "私たちは昨夜映画を見ました。",
+        note: "名詞では『腕時計』の意味でもよく使います。"
+      },
+      {
+        word: "cotton",
+        pos: "noun",
+        ipa: "/ˈkɑːtn/",
+        kana: "コットン",
+        meaning: "綿、綿布",
+        example: "This shirt is made of cotton.",
+        translation: "このシャツは綿でできています。"
+      },
+      {
+        word: "as well",
+        pos: "phrase",
+        ipa: "/æz wel/",
+        kana: "アズ ウェル",
+        meaning: "〜もまた、同様に",
+        example: "She speaks English and Thai as well.",
+        translation: "彼女は英語とタイ語も話します。",
+        note: "文末で使われることが多く、also に近い意味です。"
+      }
+    ,
+      {
+        word: "circumstance",
+        pos: "noun",
+        ipa: "/ˈsɜːrkəmstæns/",
+        kana: "サーカムスタンス",
+        meaning: "状況、事情",
+        example: "I had to change my plans because of the circumstance.",
+        translation: "その事情のため、私は予定を変えなければなりませんでした。",
+        note: "日常では circumstances の複数形で『状況、事情』と使われることも多いです。"
+      }
+    ];
+
+    const cards = document.getElementById('cards');
+    const search = document.getElementById('search');
+    const count = document.getElementById('count');
+
+    function render(list) {
+      cards.innerHTML = list.map(item => `
+        <article class="card">
+          <div class="word-row">
+            <div>
+              <h2 class="word">${item.word}</h2>
+            </div>
+            <span class="pos">${item.pos}</span>
+          </div>
+
+          <div class="pron"><strong>発音:</strong> ${item.ipa} / ${item.kana}</div>
+
+          <div class="label">意味</div>
+          <p class="meaning">${item.meaning}</p>
+
+          <div class="label">例文</div>
+          <div class="example">
+            <p class="example-en">${item.example}</p>
+            <p class="example-ja">${item.translation}</p>
+          </div>
+
+          ${item.note ? `<div class="note">${item.note}</div>` : ''}
+        </article>
+      `).join('');
+
+      count.textContent = `${list.length} words`;
+    }
+
+    function filterWords(keyword) {
+      const q = keyword.trim().toLowerCase();
+      if (!q) return words;
+      return words.filter(item =>
+        item.word.toLowerCase().includes(q) ||
+        item.meaning.toLowerCase().includes(q) ||
+        item.example.toLowerCase().includes(q) ||
+        item.translation.toLowerCase().includes(q) ||
+        item.kana.toLowerCase().includes(q)
+      );
+    }
+
+    search.addEventListener('input', (e) => {
+      render(filterWords(e.target.value));
+    });
+
+    render(words);
+  </script>
+</body>
+</html>
