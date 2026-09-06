@@ -1,0 +1,85 @@
+import type { RoadmapPhase } from "@/lib/types";
+
+export const ROADMAP: RoadmapPhase[] = [
+  {
+    id: "m1",
+    label: "Month 1",
+    title: "短文を自動化する",
+    theme: "SVO / SVC の短文を、日本語の文法を考えずに口から出す",
+    focus: ["SVO", "SVC", "疑問文", "時制", "前置詞", "基本チャンク"],
+    examples: [
+      "Are these ...?",
+      "Have you ...?",
+      "I'm going to ...",
+      "I've been ...",
+      "I went there with ...",
+      "I'm staying here for ...",
+    ],
+    goal: "簡単な英文なら日本語の文法を考えずに発話できる。",
+    durationDays: 30,
+  },
+  {
+    id: "m2",
+    label: "Month 2",
+    title: "文をつなげる",
+    theme: "接続詞で1文を複数文に拡張する",
+    focus: ["and", "but", "so", "because", "if", "when", "before", "after", "while", "although"],
+    examples: [
+      "I like this hotel because the room is big and the Wi-Fi is fast, but the location isn't very convenient.",
+    ],
+    goal: "1つのテーマについて1〜2分程度説明できる。",
+    durationDays: 30,
+  },
+  {
+    id: "m3",
+    label: "Month 3",
+    title: "自分の意見を説明する",
+    theme: "結論 → 理由 → 具体例 の構造で話す",
+    focus: ["結論", "理由", "具体例", "Also / For example / The main reason is"],
+    examples: [
+      "I prefer staying in Thailand.",
+      "The main reason is that the cost of living is relatively low.",
+      "For example, I can rent a good apartment for much less than in Japan.",
+      "Also, it's convenient for traveling around Southeast Asia.",
+    ],
+    goal: "日常的なテーマについて2〜3分説明できる。CEFR B1相当。",
+    durationDays: 30,
+  },
+  {
+    id: "b1-b2",
+    label: "B1 → B2",
+    title: "複雑な内容を正確に説明する",
+    theme: "「簡単な英語を高速で使う」から「複雑な内容を正確に説明する」へ",
+    focus: [
+      "English Grammar in Use",
+      "Podcast / YouTube / BBC / Netflix",
+      "ディスカッション",
+      "100〜150語 Writing",
+      "要約",
+    ],
+    examples: [
+      "Although the cost of living has risen, I still think it's worth staying here for a while.",
+    ],
+    goal: "CEFR B2。抽象度の高い話題でも筋道立てて説明できる。",
+    durationDays: null,
+  },
+  {
+    id: "b2-c1",
+    label: "B2 → C1",
+    title: "IELTS 7.0 / CEFR C1",
+    theme: "アカデミック・社会問題・仕事の議論を正確に",
+    focus: [
+      "IELTS Listening / Reading / Writing / Speaking",
+      "Academic Vocabulary",
+      "言い換え",
+      "抽象的な議論",
+      "長文要約",
+      "社会問題・仕事・テクノロジー関連ディスカッション",
+    ],
+    examples: [
+      "While remote work offers flexibility, it can blur the boundary between professional and personal life.",
+    ],
+    goal: "CEFR C1 / IELTS 7.0",
+    durationDays: null,
+  },
+];
