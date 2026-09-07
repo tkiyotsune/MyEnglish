@@ -14,7 +14,7 @@ function isActive(pathname: string, href: string) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { ready } = useApp();
+  const { ready, storageError } = useApp();
 
   return (
     <div className="flex min-h-dvh">
@@ -51,6 +51,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10 md:pt-8">
+          {storageError && (
+            <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              保存に失敗しています。この端末のブラウザ設定でサイトデータが無効か、容量不足の可能性があります。Settings から JSON を書き出して控えてください。（{storageError}）
+            </div>
+          )}
           {ready ? children : <div className="py-20 text-center text-sm text-muted-foreground">Loading…</div>}
         </main>
 

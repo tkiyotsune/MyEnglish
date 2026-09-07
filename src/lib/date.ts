@@ -40,3 +40,8 @@ export function formatShort(key: string): string {
   const d = parseDateKey(key);
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
+
+/** Local date key (YYYY-MM-DD) of an ISO timestamp. Never slice ISO strings: they are UTC. */
+export function dateKeyOf(iso: string): string {
+  return toDateKey(new Date(iso));
+}

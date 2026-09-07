@@ -13,10 +13,7 @@ import { toLines, fromLines } from "@/components/shared/lines";
 import { useApp } from "@/lib/store/AppProvider";
 import type { JournalEntry } from "@/lib/types";
 import { formatDateJa } from "@/lib/date";
-
-function countSentences(text: string): number {
-  return text.split(/\n|(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean).length;
-}
+import { countSentences } from "@/lib/text";
 
 function Editor({ date, entry }: { date: string; entry: JournalEntry | undefined }) {
   const { actions } = useApp();
@@ -88,7 +85,7 @@ export default function JournalPage() {
         <Input type="date" className="w-auto" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
       </PageHeader>
 
-      <Editor key={`${date}:${entry?.id ?? "new"}`} date={date} entry={entry} />
+      <Editor key={date} date={date} entry={entry} />
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold">履歴</h2>

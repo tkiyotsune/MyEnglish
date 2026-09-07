@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useCardSession } from "@/components/shared/useCardSession";
+import { shuffle } from "@/lib/text";
+import { dateKeyOf } from "@/lib/date";
 import { Trash2, Eye, Check, X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,24 +17,14 @@ import { useApp } from "@/lib/store/AppProvider";
 import type { SpeakingSentence } from "@/lib/types";
 import { tasksForDate } from "@/lib/tasks";
 
-export const SPEAKING_CATEGORIES = ["SVO", "SVC", "疑問文", "現在形", "過去形", "現在完了", "前置詞", "接続詞", "助動詞", "日常会話", "単語", "文法", "時制", "その他"];
+const SPEAKING_CATEGORIES = ["SVO", "SVC", "疑問文", "現在形", "過去形", "現在完了", "前置詞", "接続詞", "助動詞", "日常会話", "単語", "文法", "時制", "その他"];
 const LEVELS = ["A1", "A2", "B1", "B2", "custom"];
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 function Practice() {
   const { data, actions, today } = useApp();
   const [category, setCategory] = useState("all");
   const [onlyLearning, setOnlyLearning] = useState(true);
-  const [queue, setQueue] = useState<string[] | null>(null);
-  const [revealed, setRevealed] = useState(false);
+  const card = useCardSession();
   const [session, setSession] = useState({ ok: 0, ng: 0 });
 
   const task = tasksForDate(data.dailyTasks, today).find((t) => t.type === "speaking");
@@ -42,22 +35,20 @@ function Practice() {
     const pool = data.speaking.filter(
       (s) => s.queuedDate !== today && (category === "all" || s.category === category) && (!onlyLearning || s.status === "learning"),
     );
-    setQueue([...queued.map((s) => s.id), ...shuffle(pool).map((s) => s.id)]);
-    setRevealed(false);
+    card.start([...queued.map((s) => s.id), ...shuffle(pool).map((s) => s.id)]);
     setSession({ ok: 0, ng: 0 });
   };
 
-  const current: SpeakingSentence | undefined = queue && queue.length > 0 ? byId.get(queue[0]) : undefined;
+  const current: SpeakingSentence | undefined = card.currentId ? byId.get(card.currentId) : undefined;
 
   const answer = (success: boolean) => {
     if (!current) return;
     actions.practiceSpeaking(current.id, success);
     setSession((s) => ({ ok: s.ok + (success ? 1 : 0), ng: s.ng + (success ? 0 : 1) }));
-    setQueue((q) => (q ? q.slice(1) : q));
-    setRevealed(false);
+    card.advance();
   };
 
-  if (!queue) {
+  if (!card.started) {
     const queuedCount = data.speaking.filter((s) => s.queuedDate === today).length;
     return (
       <div className="rounded-lg border bg-card p-4">
@@ -92,7 +83,7 @@ function Practice() {
         <div className="mt-2 text-2xl font-semibold tabular-nums">
           {session.ok} <span className="text-sm text-muted-foreground">正解</span> / {session.ng} <span className="text-sm text-muted-foreground">不正解</span>
         </div>
-        <Button className="mt-4" variant="outline" onClick={() => setQueue(null)}>
+        <Button className="mt-4" variant="outline" onClick={card.stop}>
           <RotateCcw data-icon="inline-start" />
           もう一度
         </Button>
@@ -103,19 +94,19 @@ function Practice() {
   return (
     <div className="rounded-lg border bg-card p-5">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>残り {queue.length} 問 · {current.category} · {current.level}</span>
+        <span>残り {card.remaining} 問 · {current.category} · {current.level}</span>
         <span className="tabular-nums">今日 {task?.completed ?? 0} / {task?.target ?? 0}</span>
       </div>
       <div className="my-8 min-h-24 text-center">
         <div className="text-xl font-medium leading-relaxed">{current.japanese || "（日本語なし）"}</div>
-        {revealed ? (
+        {card.revealed ? (
           <div className="mt-4 text-lg text-emerald-600 dark:text-emerald-400">{current.english}</div>
         ) : (
           <div className="mt-4 text-sm text-muted-foreground">声に出してから答えを見る</div>
         )}
       </div>
-      {!revealed ? (
-        <Button className="h-12 w-full text-base" onClick={() => setRevealed(true)}>
+      {!card.revealed ? (
+        <Button className="h-12 w-full text-base" onClick={card.reveal}>
           <Eye data-icon="inline-start" />
           答えを見る
         </Button>
@@ -131,7 +122,7 @@ function Practice() {
           </Button>
         </div>
       )}
-      <button className="mt-4 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => setQueue(null)}>
+      <button className="mt-4 w-full text-center text-xs text-muted-foreground hover:underline" onClick={card.stop}>
         終了する
       </button>
     </div>
@@ -223,7 +214,7 @@ function List() {
                   <span>{s.category}</span>
                   <span>{s.level}</span>
                   <span className="tabular-nums">○{s.successCount} ×{s.failureCount}</span>
-                  {s.lastPracticedAt && <span>最終 {s.lastPracticedAt.slice(0, 10)}</span>}
+                  {s.lastPracticedAt && <span>最終 {dateKeyOf(s.lastPracticedAt)}</span>}
                   {s.source === "mistake" && <span>from Mistakes</span>}
                 </div>
               </div>

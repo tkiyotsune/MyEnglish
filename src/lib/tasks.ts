@@ -46,13 +46,23 @@ export function tasksForDate(tasks: DailyTask[], date: string): DailyTask[] {
   return TASK_TYPES.map((t) => byType.get(t)).filter((t): t is DailyTask => Boolean(t));
 }
 
+/** A task with target 0 is skipped for the day: not counted, not shown as remaining. */
+export function isTaskSkipped(t: DailyTask): boolean {
+  return t.target <= 0;
+}
+
 export function isTaskDone(t: DailyTask): boolean {
   return t.target > 0 && t.completed >= t.target;
 }
 
+export function activeTasks(tasks: DailyTask[]): DailyTask[] {
+  return tasks.filter((t) => !isTaskSkipped(t));
+}
+
 export function dayProgress(tasks: DailyTask[]): { done: number; total: number; ratio: number } {
-  const total = tasks.length;
-  const done = tasks.filter(isTaskDone).length;
+  const active = activeTasks(tasks);
+  const total = active.length;
+  const done = active.filter(isTaskDone).length;
   return { done, total, ratio: total === 0 ? 0 : done / total };
 }
 

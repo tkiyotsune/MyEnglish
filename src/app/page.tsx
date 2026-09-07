@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Stat } from "@/components/shared/Stat";
 import { buttonVariants } from "@/components/ui/button";
 import { TaskCard } from "@/components/today/TaskCard";
-import { TASK_META, computeStreak, dayProgress, isTaskDone, tasksForDate } from "@/lib/tasks";
+import { TASK_META, activeTasks, computeStreak, dayProgress, isTaskDone, isTaskSkipped, tasksForDate } from "@/lib/tasks";
 import { addDays, formatDateJa } from "@/lib/date";
 import { currentPhase } from "@/lib/roadmap";
 import { cn } from "cn";
@@ -18,7 +18,7 @@ export default function DashboardPage() {
   const progress = dayProgress(tasks);
   const streak = computeStreak(data.dailyTasks, today, addDays);
   const { phase, dayInPhase } = currentPhase(data.settings, today);
-  const remaining = tasks.filter((t) => !isTaskDone(t));
+  const remaining = activeTasks(tasks).filter((t) => !isTaskDone(t));
   const openMistakes = data.mistakes.filter((m) => m.status !== "mastered").length;
 
   return (
@@ -70,16 +70,17 @@ export default function DashboardPage() {
           {tasks.map((t) => {
             const meta = TASK_META[t.type];
             const done = isTaskDone(t);
+            const skipped = isTaskSkipped(t);
             const ratio = t.target === 0 ? 0 : Math.min(1, t.completed / t.target);
             return (
-              <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+              <div key={t.id} className={cn("flex items-center gap-3 px-4 py-2.5 text-sm", skipped && "opacity-50")}>
                 <span className={cn("size-2 rounded-full", done ? "bg-emerald-500" : t.completed > 0 ? "bg-amber-500" : "bg-muted-foreground/30")} />
                 <span className="w-32 shrink-0 truncate">{meta.label}</span>
                 <div className="hidden h-1 flex-1 overflow-hidden rounded-full bg-muted sm:block">
                   <div className={cn("h-full bg-primary", done && "bg-emerald-500")} style={{ width: `${ratio * 100}%` }} />
                 </div>
                 <span className="ml-auto tabular-nums text-muted-foreground">
-                  {t.completed} / {t.target}
+                  {skipped ? "スキップ" : `${t.completed} / ${t.target}`}
                 </span>
               </div>
             );

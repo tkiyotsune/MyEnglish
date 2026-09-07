@@ -27,14 +27,27 @@ function read<T>(key: string, fallback: T): T {
 }
 
 function write(key: string, value: unknown): void {
-  window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`保存に失敗しました（${key}）: ${msg}`);
+  }
+}
+
+function readFlag(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export class LocalStorageRepository implements Repository {
   async loadAll(): Promise<AppData> {
     if (typeof window === "undefined") return createInitialData();
 
-    const seeded = window.localStorage.getItem(SEEDED_KEY) === "1";
+    const seeded = readFlag(SEEDED_KEY);
     if (!seeded) {
       const data = createInitialData();
       await this.replaceAll(data);

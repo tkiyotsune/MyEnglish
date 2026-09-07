@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApp } from "@/lib/store/AppProvider";
 import { TASK_META, dayProgress, isStudyDay } from "@/lib/tasks";
 import type { TaskType } from "@/lib/types";
-import { addDays, formatShort } from "@/lib/date";
+import { addDays, dateKeyOf, formatShort } from "@/lib/date";
 import { cn } from "cn";
 
 type Range = "7" | "30" | "all";
@@ -22,11 +22,11 @@ export default function AnalyticsPage() {
   const sum = (type: TaskType) => tasks.filter((t) => t.type === type).reduce((a, t) => a + t.completed, 0);
 
   const masteredVocab = data.vocabulary.filter((v) => v.status === "mastered").length;
-  const learnedVocabInRange = data.vocabulary.filter((v) => !v.id.startsWith("seed-") && inRange(v.createdAt.slice(0, 10))).length;
-  const listeningDone = data.listening.filter((m) => m.completedAt && inRange(m.completedAt.slice(0, 10))).length;
-  const grammarDone = data.grammar.filter((g) => g.completedAt && inRange(g.completedAt.slice(0, 10))).length;
+  const learnedVocabInRange = data.vocabulary.filter((v) => !v.id.startsWith("seed-") && inRange(dateKeyOf(v.createdAt))).length;
+  const listeningDone = data.listening.filter((m) => m.completedAt && inRange(dateKeyOf(m.completedAt))).length;
+  const grammarDone = data.grammar.filter((g) => g.status === "done" && g.completedAt && inRange(dateKeyOf(g.completedAt))).length;
   const journalDays = data.journal.filter((j) => inRange(j.date) && j.text.trim()).length;
-  const mistakesResolved = data.mistakes.filter((m) => m.status === "mastered" && m.lastReviewedAt && inRange(m.lastReviewedAt.slice(0, 10))).length;
+  const mistakesResolved = data.mistakes.filter((m) => m.status === "mastered" && m.lastReviewedAt && inRange(dateKeyOf(m.lastReviewedAt))).length;
 
   const studyDays = new Set(data.dailyTasks.filter((t) => inRange(t.date) && t.completed > 0).map((t) => t.date)).size;
 

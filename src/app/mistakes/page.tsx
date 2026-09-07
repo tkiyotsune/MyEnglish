@@ -10,7 +10,7 @@ import { NativeSelect } from "@/components/shared/NativeSelect";
 import { MistakeForm, MISTAKE_CATEGORIES } from "@/components/mistakes/MistakeForm";
 import { useApp } from "@/lib/store/AppProvider";
 import type { MistakeStatus } from "@/lib/types";
-import { formatShort } from "@/lib/date";
+import { dateKeyOf, formatShort } from "@/lib/date";
 
 const STATUS_OPTIONS: { value: MistakeStatus | "all"; label: string }[] = [
   { value: "all", label: "すべて" },
@@ -67,7 +67,7 @@ export default function MistakesPage() {
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <StatusBadge status={m.status} />
                     <span>{m.category}</span>
-                    <span>{formatShort(m.createdAt.slice(0, 10))} 記録</span>
+                    <span>{formatShort(dateKeyOf(m.createdAt))} 記録</span>
                     <span>復習 {m.reviewCount}回</span>
                   </div>
                 </div>

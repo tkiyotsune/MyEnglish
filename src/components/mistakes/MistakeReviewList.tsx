@@ -4,13 +4,17 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useApp } from "@/lib/store/AppProvider";
-import { todayKey } from "@/lib/date";
+import { dateKeyOf } from "@/lib/date";
 
 /** Mistakes recorded before today and not yet mastered re-appear here as a review queue. */
 export function MistakeReviewList() {
-  const { data, actions } = useApp();
-  const today = todayKey();
-  const queue = data.mistakes.filter((m) => m.status !== "mastered" && m.createdAt.slice(0, 10) < today && (m.lastReviewedAt ?? "").slice(0, 10) !== today);
+  const { data, actions, today } = useApp();
+  const queue = data.mistakes.filter(
+    (m) =>
+      m.status !== "mastered" &&
+      dateKeyOf(m.createdAt) < today &&
+      (!m.lastReviewedAt || dateKeyOf(m.lastReviewedAt) !== today),
+  );
 
   if (queue.length === 0) return <EmptyState>復習待ちの表現はありません。会話で言えなかった表現は Mistakes に記録しましょう。</EmptyState>;
 

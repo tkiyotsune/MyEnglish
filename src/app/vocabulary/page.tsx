@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import { useCardSession } from "@/components/shared/useCardSession";
+import { shuffle } from "@/lib/text";
 import { useSearchParams } from "next/navigation";
 import { Trash2, Eye, Check, X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,20 +22,10 @@ import { tasksForDate } from "@/lib/tasks";
 const SOURCES = ["Daily1500", "Basic2400", "DUO", "conversation", "VOA", "custom"];
 const CATEGORIES = ["名詞", "動詞", "形容詞", "副詞", "前置詞", "接続詞", "チャンク", "その他"];
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function Review() {
   const { data, actions, today } = useApp();
   const [status, setStatus] = useState<VocabStatus | "all">("all");
-  const [queue, setQueue] = useState<string[] | null>(null);
-  const [revealed, setRevealed] = useState(false);
+  const card = useCardSession();
   const task = tasksForDate(data.dailyTasks, today).find((t) => t.type === "reviewVocab");
   const byId = useMemo(() => new Map(data.vocabulary.map((v) => [v.id, v])), [data.vocabulary]);
 
@@ -41,19 +33,17 @@ function Review() {
     const pool = data.vocabulary.filter((v) => status === "all" ? v.status !== "mastered" : v.status === status);
     // Oldest reviewed first, then shuffle lightly within.
     const sorted = [...pool].sort((a, b) => (a.lastReviewedAt ?? "").localeCompare(b.lastReviewedAt ?? ""));
-    setQueue(shuffle(sorted.slice(0, 100)).map((v) => v.id));
-    setRevealed(false);
+    card.start(shuffle(sorted.slice(0, 100)).map((v) => v.id));
   };
 
-  const current: Vocabulary | undefined = queue && queue.length > 0 ? byId.get(queue[0]) : undefined;
+  const current: Vocabulary | undefined = card.currentId ? byId.get(card.currentId) : undefined;
   const answer = (remembered: boolean) => {
     if (!current) return;
     actions.reviewVocabulary(current.id, remembered);
-    setQueue((q) => (q ? q.slice(1) : q));
-    setRevealed(false);
+    card.advance();
   };
 
-  if (!queue) {
+  if (!card.started) {
     return (
       <div className="rounded-lg border bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -76,7 +66,7 @@ function Review() {
     return (
       <div className="rounded-lg border bg-card p-6 text-center">
         <div className="text-sm text-muted-foreground">復習完了</div>
-        <Button className="mt-4" variant="outline" onClick={() => setQueue(null)}>
+        <Button className="mt-4" variant="outline" onClick={card.stop}>
           <RotateCcw data-icon="inline-start" />
           もう一度
         </Button>
@@ -86,12 +76,12 @@ function Review() {
   return (
     <div className="rounded-lg border bg-card p-5">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>残り {queue.length} 語</span>
+        <span>残り {card.remaining} 語</span>
         <span className="tabular-nums">今日 {task?.completed ?? 0} / {task?.target ?? 0}</span>
       </div>
       <div className="my-8 text-center">
         <div className="text-3xl font-semibold tracking-tight">{current.word}</div>
-        {revealed ? (
+        {card.revealed ? (
           <div className="mt-4 space-y-2">
             <div className="text-lg">{current.meaning}</div>
             {current.chunks.length > 0 && (
@@ -109,8 +99,8 @@ function Review() {
           <div className="mt-4 text-sm text-muted-foreground">意味と例文を思い出してから</div>
         )}
       </div>
-      {!revealed ? (
-        <Button className="h-12 w-full text-base" onClick={() => setRevealed(true)}>
+      {!card.revealed ? (
+        <Button className="h-12 w-full text-base" onClick={card.reveal}>
           <Eye data-icon="inline-start" />
           答えを見る
         </Button>
@@ -126,7 +116,7 @@ function Review() {
           </Button>
         </div>
       )}
-      <button className="mt-4 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => setQueue(null)}>
+      <button className="mt-4 w-full text-center text-xs text-muted-foreground hover:underline" onClick={card.stop}>
         終了する
       </button>
     </div>

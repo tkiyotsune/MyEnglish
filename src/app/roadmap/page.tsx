@@ -12,10 +12,10 @@ export default function RoadmapPage() {
   const { phase: current, dayInPhase } = currentPhase(data.settings, today);
   const currentIdx = ROADMAP.findIndex((p) => p.id === current.id);
 
-  const ranges = ROADMAP.reduce<{ start: string; end: string | null }[]>((acc, p) => {
+  const ranges = ROADMAP.reduce<{ start: string | null; end: string | null }[]>((acc, p) => {
     const prev = acc[acc.length - 1];
-    const start = prev?.end ? addDays(prev.end, 1) : data.settings.startDate;
-    const end = p.durationDays ? addDays(start, p.durationDays - 1) : null;
+    const start = prev ? (prev.end ? addDays(prev.end, 1) : null) : data.settings.startDate;
+    const end = start && p.durationDays ? addDays(start, p.durationDays - 1) : null;
     return [...acc, { start, end }];
   }, []);
 
@@ -44,7 +44,7 @@ export default function RoadmapPage() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {state === "current" && <span className="mr-2 rounded bg-primary px-1.5 py-0.5 text-primary-foreground">現在 · Day {dayInPhase + 1}</span>}
-                    {r.end ? `${formatShort(r.start)} – ${formatShort(r.end)}` : `${formatShort(r.start)} –`}
+                    {r.start === null ? "未定 –" : r.end ? `${formatShort(r.start)} – ${formatShort(r.end)}` : `${formatShort(r.start)} –`}
                   </div>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{p.theme}</p>

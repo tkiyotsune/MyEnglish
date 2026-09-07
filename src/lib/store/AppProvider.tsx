@@ -21,14 +21,17 @@ import type {
   Mistake,
   Settings,
   SpeakingSentence,
+  TaskTargets,
   TaskType,
   Vocabulary,
 } from "@/lib/types";
+import { TASK_TYPES } from "@/lib/types";
 import { getRepository } from "@/lib/repository";
 import { createInitialData } from "@/lib/seed";
 import { ensureTasksForDate } from "@/lib/tasks";
 import { nowIso, todayKey } from "@/lib/date";
 import { newId } from "@/lib/id";
+import { countSentences } from "@/lib/text";
 
 type Entity = { id: string };
 
@@ -81,16 +84,24 @@ type AppContextValue = {
   data: AppData;
   ready: boolean;
   today: string;
+  /** Non-null when persistence failed; in-memory state may be ahead of storage. */
+  storageError: string | null;
   actions: Actions;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function countSentences(text: string): number {
-  return text
-    .split(/\n|(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0).length;
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function sameTargets(a: TaskTargets, b: TaskTargets): boolean {
+  return TASK_TYPES.every((t) => a[t] === b[t]);
+}
+
+function withTodayTasks(data: AppData, today: string): AppData {
+  const ensured = ensureTasksForDate(data.dailyTasks, today, data.settings.targets);
+  return ensured.changed ? { ...data, dailyTasks: ensured.tasks } : data;
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -98,87 +109,111 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(() => createInitialData());
   const [ready, setReady] = useState(false);
   const [today, setToday] = useState(() => todayKey());
+  const [storageError, setStorageError] = useState<string | null>(null);
   const dataRef = useRef(data);
+  const todayRef = useRef(today);
+
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
-  // Load persisted data once.
+  /** Returns the current local date key and rolls `today` over if the day changed. */
+  const reportWrite = useCallback((p: Promise<void>) => {
+    p.then(() => setStorageError(null)).catch((e: unknown) => setStorageError(errorMessage(e)));
+  }, []);
+
+  /** Returns the current local date key; on a day change, rolls `today` over and creates the new day's tasks. */
+  const resolveToday = useCallback((): string => {
+    const key = todayKey();
+    if (key !== todayRef.current) {
+      todayRef.current = key;
+      setToday(key);
+      setData((prev) => {
+        const next = withTodayTasks(prev, key);
+        if (next !== prev) reportWrite(repo.saveCollection("dailyTasks", next.dailyTasks));
+        return next;
+      });
+    }
+    return key;
+  }, [repo, reportWrite]);
+
+  // Load persisted data once. Never leave the app stuck on "Loading" if storage is unavailable.
   useEffect(() => {
     let cancelled = false;
-    repo.loadAll().then((loaded) => {
-      if (cancelled) return;
-      const date = todayKey();
-      const ensured = ensureTasksForDate(loaded.dailyTasks, date, loaded.settings.targets);
-      const next = { ...loaded, dailyTasks: ensured.tasks };
-      setData(next);
-      setToday(date);
-      setReady(true);
-      if (ensured.changed) void repo.saveCollection("dailyTasks", ensured.tasks);
-    });
+    repo
+      .loadAll()
+      .catch((e: unknown) => {
+        setStorageError(errorMessage(e));
+        return createInitialData();
+      })
+      .then((loaded) => {
+        if (cancelled) return;
+        const date = resolveToday();
+        const next = withTodayTasks(loaded, date);
+        setData(next);
+        setReady(true);
+        if (next !== loaded) reportWrite(repo.saveCollection("dailyTasks", next.dailyTasks));
+      });
     return () => {
       cancelled = true;
     };
-  }, [repo]);
+  }, [repo, resolveToday, reportWrite]);
 
   // Roll over to a new day when the date changes while the app is open.
   useEffect(() => {
-    const check = () => {
-      const date = todayKey();
-      if (date !== today) setToday(date);
-    };
+    const check = () => resolveToday();
     const id = window.setInterval(check, 60_000);
     document.addEventListener("visibilitychange", check);
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [today]);
+  }, [resolveToday]);
 
   const persistCollection = useCallback(
     <K extends CollectionName>(name: K, updater: (items: AppData[K]) => AppData[K]) => {
       setData((prev) => {
         const items = updater(prev[name]);
-        void repo.saveCollection(name, items);
+        reportWrite(repo.saveCollection(name, items));
         return { ...prev, [name]: items };
       });
     },
-    [repo],
+    [repo, reportWrite],
   );
-
-  useEffect(() => {
-    if (!ready) return;
-    persistCollection("dailyTasks", (tasks) => ensureTasksForDate(tasks, today, dataRef.current.settings.targets).tasks);
-  }, [ready, today, persistCollection]);
 
   const updateSettings = useCallback(
     (patch: Partial<Settings>) => {
+      const date = resolveToday();
       setData((prev) => {
-        const settings = { ...prev.settings, ...patch, targets: { ...prev.settings.targets, ...(patch.targets ?? {}) } };
-        void repo.saveSettings(settings);
-        // Apply new targets to today's tasks that haven't been touched yet.
+        const settings: Settings = {
+          ...prev.settings,
+          ...patch,
+          targets: { ...prev.settings.targets, ...(patch.targets ?? {}) },
+        };
+        reportWrite(repo.saveSettings(settings));
         let dailyTasks = prev.dailyTasks;
-        if (patch.targets) {
-          dailyTasks = prev.dailyTasks.map((t) =>
-            t.date === todayKey() ? { ...t, target: settings.targets[t.type] } : t,
-          );
-          void repo.saveCollection("dailyTasks", dailyTasks);
+        if (!sameTargets(prev.settings.targets, settings.targets)) {
+          // Apply new targets to today's tasks only; history keeps its own targets.
+          dailyTasks = prev.dailyTasks.map((t) => (t.date === date ? { ...t, target: settings.targets[t.type] } : t));
+          reportWrite(repo.saveCollection("dailyTasks", dailyTasks));
         }
         return { ...prev, settings, dailyTasks };
       });
     },
-    [repo],
+    [repo, reportWrite, resolveToday],
   );
 
   const patchTask = useCallback(
     (type: TaskType, fn: (t: DailyTask) => DailyTask) => {
-      const date = todayKey();
-      persistCollection("dailyTasks", (tasks) => {
-        const ensured = ensureTasksForDate(tasks, date, dataRef.current.settings.targets).tasks;
-        return ensured.map((t) => (t.date === date && t.type === type ? fn(t) : t));
+      const date = resolveToday();
+      setData((prev) => {
+        const ensured = ensureTasksForDate(prev.dailyTasks, date, prev.settings.targets).tasks;
+        const dailyTasks = ensured.map((t) => (t.date === date && t.type === type ? fn(t) : t));
+        reportWrite(repo.saveCollection("dailyTasks", dailyTasks));
+        return { ...prev, dailyTasks };
       });
     },
-    [persistCollection],
+    [repo, reportWrite, resolveToday],
   );
 
   const incrementTask = useCallback(
@@ -268,7 +303,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       queueMistakeForSpeaking: (id) => {
         const m = dataRef.current.mistakes.find((x) => x.id === id);
         if (!m) return;
-        const date = todayKey();
+        const date = resolveToday();
         const existing = dataRef.current.speaking.find((s) => s.mistakeId === id);
         if (existing) {
           persistCollection("speaking", (items) => upsert(items, existing.id, { queuedDate: date }));
@@ -305,8 +340,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const has = m.completedSteps.includes(step);
         const completedSteps = has ? m.completedSteps.filter((s) => s !== step) : [...m.completedSteps, step];
         const patch: Partial<ListeningMaterial> = { completedSteps };
-        const allDone = completedSteps.length >= 7;
-        if (allDone && !m.completedAt) {
+        if (completedSteps.length >= 7 && !m.completedAt) {
           patch.completedAt = nowIso();
           incrementTask("listening", 1);
         }
@@ -325,32 +359,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
         persistCollection("grammar", (items) => [...items, item]);
         return item;
       },
+      // completedAt records the FIRST completion and is never cleared, so reverting and
+      // re-completing a theme cannot inflate the daily count. Analytics filter on status.
       updateGrammar: (id, patch) => persistCollection("grammar", (items) => upsert(items, id, patch)),
       removeGrammar: (id) => persistCollection("grammar", (items) => remove(items, id)),
       completeGrammar: (id) => {
         const g = dataRef.current.grammar.find((x) => x.id === id);
         if (!g || g.status === "done") return;
-        persistCollection("grammar", (items) => upsert(items, id, { status: "done", completedAt: nowIso() }));
-        incrementTask("grammar", 1);
+        // Only the first completion counts toward the daily task; re-completing a reverted theme does not.
+        const firstTime = !g.completedAt;
+        persistCollection("grammar", (items) => upsert(items, id, { status: "done", completedAt: g.completedAt ?? nowIso() }));
+        if (firstTime) incrementTask("grammar", 1);
       },
 
       saveJournal: (date, patch) => {
-        let sentences = 0;
-        persistCollection("journal", (items) => {
-          const existing = items.find((j) => j.date === date);
-          const base: JournalEntry = existing ?? {
-            id: newId(),
-            date,
-            text: "",
-            newExpressions: [],
-            spoken: false,
-            updatedAt: nowIso(),
-          };
-          const next = { ...base, ...patch, updatedAt: nowIso() };
-          sentences = countSentences(next.text);
-          return existing ? items.map((j) => (j.id === existing.id ? next : j)) : [next, ...items];
+        const isToday = date === resolveToday();
+        setData((prev) => {
+          const existing = prev.journal.find((j) => j.date === date);
+          const base: JournalEntry = existing ?? { id: newId(), date, text: "", newExpressions: [], spoken: false, updatedAt: nowIso() };
+          const next: JournalEntry = { ...base, ...patch, updatedAt: nowIso() };
+          const journal = existing ? prev.journal.map((j) => (j.id === existing.id ? next : j)) : [next, ...prev.journal];
+          reportWrite(repo.saveCollection("journal", journal));
+          let dailyTasks = prev.dailyTasks;
+          if (isToday) {
+            const sentences = countSentences(next.text);
+            dailyTasks = ensureTasksForDate(prev.dailyTasks, date, prev.settings.targets).tasks.map((t) =>
+              t.date === date && t.type === "journal" ? { ...t, completed: sentences } : t,
+            );
+            reportWrite(repo.saveCollection("dailyTasks", dailyTasks));
+          }
+          return { ...prev, journal, dailyTasks };
         });
-        if (date === todayKey()) setTaskCompleted("journal", sentences);
       },
       removeJournal: (id) => persistCollection("journal", (items) => remove(items, id)),
 
@@ -363,23 +402,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       exportJson: () => JSON.stringify({ exportedAt: nowIso(), version: 1, data: dataRef.current }, null, 2),
       importJson: async (json) => {
-        const parsed = JSON.parse(json) as { data?: AppData } | AppData;
-        const incoming = "data" in parsed && parsed.data ? parsed.data : (parsed as AppData);
-        if (!incoming.settings || !Array.isArray(incoming.dailyTasks)) throw new Error("形式が正しくありません");
+        const parsed: unknown = JSON.parse(json);
+        if (typeof parsed !== "object" || parsed === null) throw new Error("形式が正しくありません");
+        const wrapped = parsed as { data?: unknown };
+        const incoming = (typeof wrapped.data === "object" && wrapped.data !== null ? wrapped.data : parsed) as Partial<AppData>;
+        if (typeof incoming.settings !== "object" || incoming.settings === null || !Array.isArray(incoming.dailyTasks)) {
+          throw new Error("形式が正しくありません");
+        }
         const base = createInitialData();
-        const merged: AppData = { ...base, ...incoming, settings: { ...base.settings, ...incoming.settings } };
-        await repo.replaceAll(merged);
-        setData(merged);
+        const merged: AppData = {
+          ...base,
+          ...incoming,
+          settings: {
+            ...base.settings,
+            ...incoming.settings,
+            targets: { ...base.settings.targets, ...(incoming.settings.targets ?? {}) },
+          },
+        };
+        const next = withTodayTasks(merged, resolveToday());
+        await repo.replaceAll(next);
+        setData(next);
+        setStorageError(null);
       },
       resetAll: async () => {
-        const fresh = createInitialData();
-        await repo.replaceAll(fresh);
-        setData(fresh);
+        const next = withTodayTasks(createInitialData(), resolveToday());
+        await repo.replaceAll(next);
+        setData(next);
+        setStorageError(null);
       },
     };
-  }, [incrementTask, setTaskCompleted, completeTask, updateSettings, persistCollection, repo]);
+  }, [incrementTask, setTaskCompleted, completeTask, updateSettings, persistCollection, repo, reportWrite, resolveToday]);
 
-  const value = useMemo<AppContextValue>(() => ({ data, ready, today, actions }), [data, ready, today, actions]);
+  const value = useMemo<AppContextValue>(
+    () => ({ data, ready, today, storageError, actions }),
+    [data, ready, today, storageError, actions],
+  );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
