@@ -3,7 +3,7 @@
 自分専用の英語学習管理Webアプリ（B1 → B2 → C1 / IELTS 7.0）。
 
 - 公開URL: https://tkiyotsune.github.io/MyEnglish/
-- 学習ノート: [フレーズ・前置詞・接続詞](https://tkiyotsune.github.io/MyEnglish/english_phrases_complete.html) / [英単語帳](https://tkiyotsune.github.io/MyEnglish/english_vocab_notebook.html)
+- 学習ノート: [フレーズ・前置詞・接続詞](https://tkiyotsune.github.io/MyEnglish/english_phrases_complete.html) / [英単語帳](https://tkiyotsune.github.io/MyEnglish/english_vocab_notebook.html)  / [Kiyo's English 3000](https://tkiyotsune.github.io/MyEnglish/kiyo_english_3000.html)
 
 ## 開発
 
