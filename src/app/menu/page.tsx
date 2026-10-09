@@ -25,7 +25,7 @@ export default function MenuPage() {
           📗 英単語帳ノート
         </a>
         <a href={withBasePath("/kiyo_english_3000.html")} className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted">
-          📙 Kiyo's English 3000
+          📙 Kiyo&apos;s English 3000
         </a>
       </div>
     </div>
