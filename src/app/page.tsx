@@ -10,7 +10,14 @@ import { TaskCard } from "@/components/today/TaskCard";
 import { TASK_META, activeTasks, computeStreak, dayProgress, isTaskDone, isTaskSkipped, tasksForDate } from "@/lib/tasks";
 import { addDays, formatDateJa } from "@/lib/date";
 import { currentPhase } from "@/lib/roadmap";
+import { withBasePath } from "@/lib/basePath";
 import { cn } from "cn";
+
+const NOTES = [
+  { href: "/english_phrases_complete.html", label: "📘 フレーズ・前置詞・接続詞ノート" },
+  { href: "/english_vocab_notebook.html", label: "📗 英単語帳ノート" },
+  { href: "/kiyo_english_3000.html", label: "📙 Kiyo's English 3000" },
+];
 
 export default function DashboardPage() {
   const { data, today } = useApp();
@@ -85,6 +92,18 @@ export default function DashboardPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-sm font-semibold">学習ノート</h2>
+        <div className="divide-y rounded-lg border bg-card">
+          {NOTES.map((n) => (
+            <a key={n.href} href={withBasePath(n.href)} className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted">
+              {n.label}
+              <ArrowRight className="ml-auto size-4 text-muted-foreground" />
+            </a>
+          ))}
         </div>
       </section>
     </div>
